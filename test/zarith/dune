@@ -1,0 +1,3 @@
+(library (name zarith_wrapper)
+ (wrapped false)
+ (libraries zarith))
