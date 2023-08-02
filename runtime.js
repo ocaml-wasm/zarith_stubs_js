@@ -614,7 +614,7 @@ function ml_z_rootrem(z, i) {
   }
 
   if (z.equals(zero) || z.equals(one)) {
-    return [0, ml_z_normalize(z), zero];
+    return [0, ml_z_normalize(z), 0];
   }
 
   var start = zero;
@@ -628,7 +628,7 @@ function ml_z_rootrem(z, i) {
     var mid = start.add(end).divide(two);
     var po = mid.pow(i);
     if (po.equals(z)) {
-      return [0, ml_z_normalize(mid), zero];
+      return [0, ml_z_normalize(mid), 0];
     } else if (po.lt(z)) {
       start = mid.next();
       ans = mid;
