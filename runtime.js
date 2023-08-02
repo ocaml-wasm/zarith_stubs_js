@@ -19,12 +19,12 @@ function ml_z_mul_overflows(x,y){
 
 //external init: unit -> unit
 //Provides: ml_z_init
-//Requires: caml_zarith_marshal, caml_zarith_unmarshal, caml_custom_ops, ml_z_hash, ml_z_compare
+//Requires: caml_zarith_marshal, caml_zarith_unmarshal, caml_custom_ops, jsoo_z_hash, ml_z_compare
 function ml_z_init(unit) {
   caml_custom_ops['_z'] =
     { serialize : caml_zarith_marshal,
       deserialize : caml_zarith_unmarshal,
-      hash : ml_z_hash,
+      hash : jsoo_z_hash,
       compare : ml_z_compare,
     };
   return 0 }
@@ -498,13 +498,15 @@ function ml_z_pow(z1, i1) {
   return ml_z_normalize(bigInt(z1).pow(i1));
 }
 
-//external hash: t -> int
-//Provides: ml_z_hash const
+//Provides: jsoo_z_hash const
 //Requires: bigInt, caml_hash_mix_int
-function ml_z_hash(z1) {
-  var a = bigInt(z1).toArray(Math.pow(2, 32));
+function jsoo_z_hash(z1) {
+  if (!z1) return 0;
+
+  z1 = bigInt(z1)
+  var a = z1.toArray(Math.pow(2, 32));
   var acc = 0;
-  for (var i = 0; i < a.value.length; i++) {
+  for (var i = a.value.length - 1; i >= 0 ; i--) {
     acc = caml_hash_mix_int(acc, a.value[i]);
   }
   if(a.value.length % 2 != 0) {
@@ -513,7 +515,14 @@ function ml_z_hash(z1) {
   if(a.isNegative){
     acc = acc + 1
   }
-  return acc | 0
+  return acc | 0;
+}
+
+//external hash: t -> int
+//Provides: ml_z_hash const
+//Requires: jsoo_z_hash, caml_hash_mix_final, caml_hash_mix_int
+function ml_z_hash(z1) {
+  return caml_hash_mix_final(caml_hash_mix_int(0, jsoo_z_hash(z1))) & 0x3FFFFFFF
 }
 
 //external to_bits: t -> string
