@@ -468,8 +468,8 @@
       (local $f f64)
       (local.set $f (call $Double_val (local.get $vf)))
       (if (i32.or (f64.ne (local.get $f) (local.get $f))
-             (i32.or (f64.eq (local.get $f) (f64.const infinity))
-                (f64.eq (local.get $f) (f64.const -infinity))))
+             (i32.or (f64.eq (local.get $f) (f64.const inf))
+                (f64.eq (local.get $f) (f64.const -inf))))
          (then (call $ml_z_raise_overflow)))
       (call $wrap_bigint (call $of_float (local.get $f))))
 
@@ -522,7 +522,7 @@
       (local $pos i32)
       (drop (block $large (result (ref eq))
          (local.set $pos (i31.get_s (ref.cast (ref i31) (local.get $vpos))))
-         (if (i32.gt_s (local.get $pos) (i32.const $31))
+         (if (i32.gt_s (local.get $pos) (i32.const 31))
             (then (local.set $pos (i32.const 31))))
          (return
             (ref.i31
