@@ -35,6 +35,6 @@ module Ml_z_hash = struct
     Static.quickcheck ~f:(fun x -> [%message (x : t) (hash x : int)]) ();
     [%expect
       {|
-      ((hash 06e8f27264e3dcc3b402b536aa76725a) (uniqueness_rate 85.742188)) |}]
+      ((hash 8df525b666559a695eac56983aacd60d) (uniqueness_rate 85.742188)) |}]
   ;;
 end
