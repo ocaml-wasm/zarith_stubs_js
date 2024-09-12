@@ -341,7 +341,6 @@ function wasm_z_pow(z1, z2) {
 }
 
 //Provides: wasm_z_hash const
-//Requires: bigInt
 function wasm_z_hash(caml_hash_mix_int, z1) {
   z1 = BigInt (z1);
   var neg = z1 < 0;
@@ -643,7 +642,6 @@ function wasm_z_lucnum(i){
 }
 
 //Provides: wasm_z_jacobi
-//Requires: bigInt, caml_invalid_argument
 function wasm_z_jacobi(n, k){
   n = BigInt(n);
   k = BigInt(k);
