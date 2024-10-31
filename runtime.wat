@@ -673,6 +673,14 @@
             (call $unwrap_bigint (local.get $z2)))))
 
    (func (export "ml_z_numbits") (param $z (ref eq)) (result (ref eq))
+      (local $x i32)
+      (drop (block $large (result (ref eq))
+         (local.set $x
+            (i31.get_s
+               (br_on_cast_fail $large (ref eq) (ref i31) (local.get $z))))
+         (if (i32.lt_s (local.get $x) (i32.const 0))
+            (then (local.set $x (i32.sub (i32.const 0) (local.get $x)))))
+         (return (ref.i31 (i32.sub (i32.const 32) (i32.clz (local.get $x)))))))
       (ref.i31 (call $numbits (call $unwrap_bigint (local.get $z)))))
 
    (func (export "ml_z_fits_int")

@@ -7,6 +7,7 @@ function wasm_z_normalize(z){
 //Provides: wasm_z_neg const
 //Requires: wasm_z_normalize
 function wasm_z_neg(z1) {
+  // Check whether can overflow or fit in 31 bits?
   return wasm_z_normalize(-BigInt(z1));
 }
 
@@ -38,6 +39,7 @@ function wasm_z_div(z1, z2) {
 function wasm_z_serialize(caml_serialize_int_1, s, z) {
   if (z < 0) z = -z;
   do {
+    // Optimize Number(BigInt.asIntN(32, z >> (k * 32n)))
     var x = Number(BigInt.asIntN(32, z));
     caml_serialize_int_1 (s, x);
     caml_serialize_int_1 (s, x >>> 8);
@@ -178,6 +180,7 @@ function wasm_z_to_int64 (z) {
 
 //Provides: wasm_z_testbit const
 function wasm_z_testbit(z,pos){
+  // Optimize Number(BigInt.asIntN(1, z >> k))
   return +((z & (1n << BigInt(pos))) != 0);
 }
 
@@ -304,24 +307,33 @@ function wasm_z_gcd(z1, z2) {
 
 //Provides: wasm_z_numbits const
 function wasm_z_numbits(z1) {
-  z1 = BigInt(z1);
-  if (z1 < 0) z1 = -z1;
-  var n = 0;
-  var upperBound = 1n;
-  while (upperBound <= z1) {
-    n += 1;
-    upperBound <<= 1n;
+/*
+  if (typeof z1 === "number") {
+    if (z1 < 0) z1 = - z1;
+    return 32 - Math.clz32(z1);
   }
+  var f = Number(z1);
+  if (1/f) {
+      if (z1 < 0) z1 = -z1;
+      var r = Math.log2(Math.abs(f)) | 0;
+      if (z1 >> BigInt(r)) r++;
+      return r;
+  }
+*/
+  var n = z1.toString(2).length;
+  if (z1 < 0) n--;
   return n; // 2^{n-1} <= |x| < 2^n
 }
 
 //Provides: wasm_z_fits_int32 const
 function wasm_z_fits_int32 (z) {
+ // comparison?
  return +(z == BigInt.asIntN(32, z));
 }
 
 //Provides: wasm_z_fits_int64 const
 function wasm_z_fits_int64 (z) {
+  // comparison?
   return +(z == BigInt.asIntN(64, z));
 }
 
@@ -384,30 +396,27 @@ function wasm_z_of_bits(s) {
 }
 
 //Provides: wasm_z_root
-//Requires: wasm_z_normalize
+//Requires: wasm_z_normalize, wasm_z_numbits
 function wasm_z_root(z, i) {
   if (z == 0 || z == 1) {
     return z;
   }
+  var log2z = wasm_z_numbits(z);
   z = BigInt(z);
   i = BigInt(i);
-  var start = 0n;
-  var end = z;
-  var ans = 0n;
-  while (start <= end)
-  {
-    var mid = (start + end) >> 1n;
-    var po = mid ** i;
-    if (po == z) {
-      return wasm_z_normalize(mid);
-    } else if (po < z) {
-      start = mid + 1n;
-      ans = mid;
-    } else {
-      end = mid - 1n;
-    }
+  var i_minus_1 = i - 1n;
+  // Start with an upper bound of the root
+  var x = 1n << ((BigInt(log2z) + i_minus_1) / i);
+  while (1) {
+      // Use Newton's method to get a better approximation of the root
+      var next = ((i_minus_1 * x) + (z / (x ** i_minus_1))) / i;
+      // The sequence is strictly decreasing until we reach the result
+      // See https://github.com/waldemarhorwat/integer-roots for a proof
+      if (x <= next) {
+          return wasm_z_normalize(x);
+      }
+      x = next
   }
-  return wasm_z_normalize(ans);
 }
 
 //Provides: wasm_z_invert
@@ -438,15 +447,14 @@ function wasm_z_perfect_power(z) {
   if (z == 0 || z == 1 || z == -1) {
     return 1;
   }
-  z = BigInt(z);
   var log2z = wasm_z_numbits(z);
+  z = BigInt(z);
   var zp = (z >= 0)?z:-z;
   for (var b = 2; b <= log2z; b++) {
     if(z < 0 && b % 2 == 0) continue;
     var p = BigInt(wasm_z_root(zp, b));
-    if(z < 0) p = -p;
     var r = p ** BigInt(b);
-    if (z == r) {
+    if (zp == r) {
       return 1;
     }
   }
