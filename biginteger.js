@@ -10,7 +10,7 @@ var bigInt = (function (undefined) {
         MAX_INT_ARR = smallToArray(MAX_INT),
         DEFAULT_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyz";
 
-    var BigInt = joo_global_object.BigInt;
+    var BigInt = globalThis.BigInt;
 
     var supportsNativeBigInt = typeof BigInt === "function";
 
