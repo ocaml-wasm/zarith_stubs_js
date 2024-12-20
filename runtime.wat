@@ -132,9 +132,9 @@
       (func $caml_string_of_jsstring (param (ref eq)) (result (ref eq))))
    (import "env" "caml_jsstring_of_string"
       (func $caml_jsstring_of_string (param (ref eq)) (result (ref eq))))
-   (import "env" "jsstring_of_substring"
-      (func $jsstring_of_substring
-         (param (ref $string)) (param i32) (param i32) (result anyref)))
+   (import "env" "caml_jsstring_of_substring"
+      (func $caml_jsstring_of_substring
+         (param (ref eq) (ref eq) (ref eq)) (result (ref eq))))
    (import "env" "caml_string_of_jsbytes"
       (func $caml_string_of_jsbytes (param (ref eq)) (result (ref eq))))
    (import "env" "caml_jsbytes_of_string"
@@ -148,7 +148,7 @@
       (func $caml_raise_constant (param (ref eq))))
    (import "env" "caml_raise_zero_divide" (func $caml_raise_zero_divide))
    (import "env" "caml_named_value"
-      (func $caml_named_value (param (ref $string)) (result eqref)))
+      (func $caml_named_value (param (ref eq)) (result eqref)))
    (import "env" "caml_copy_int32"
       (func $caml_copy_int32 (param i32) (result (ref eq))))
    (import "env" "caml_copy_nativeint"
@@ -602,10 +602,11 @@
       (local.set $res
          (call $of_js_string_base
             (local.get $vbase)
-            (call $jsstring_of_substring
-               (local.get $s)
-               (local.get $pos)
-               (local.get $len))))
+            (call $unwrap
+               (call $caml_jsstring_of_substring
+                  (local.get $s)
+                  (ref.i31 (local.get $pos))
+                  (ref.i31 (local.get $len))))))
       (block $error
          (return_call $wrap_bigint (br_on_null $error (local.get $res))))
       (call $caml_invalid_argument
