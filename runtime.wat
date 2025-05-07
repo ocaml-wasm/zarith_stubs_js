@@ -134,7 +134,7 @@
       (func $caml_jsstring_of_string (param (ref eq)) (result (ref eq))))
    (import "env" "jsstring_of_substring"
       (func $jsstring_of_substring
-         (param (ref $string)) (param i32) (param i32) (result anyref)))
+         (param (ref eq)) (param i32) (param i32) (result (ref eq))))
    (import "env" "caml_string_of_jsbytes"
       (func $caml_string_of_jsbytes (param (ref eq)) (result (ref eq))))
    (import "env" "caml_jsbytes_of_string"
@@ -176,7 +176,7 @@
       (func $caml_deserialize_int_4 (param (ref eq)) (result i32)))
 
    (type $block (array (mut (ref eq))))
-   (type $string (array (mut i8)))
+   (type $string (struct (field anyref)))
 
    (type $compare
       (func (param (ref eq)) (param (ref eq)) (param i32) (result i32)))
