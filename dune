@@ -1,12 +1,12 @@
 (library
  (name zarith_stubs_js)
  (public_name zarith_stubs_js)
+ (wasm_of_ocaml
+  (wasm_files ./runtime.wat)
+  (javascript_files ./runtime.js ./runtime_wasm.js))
  (js_of_ocaml
   (javascript_files ./runtime.js)
   (flags --no-sourcemap))
  (libraries)
  (preprocess no_preprocessing)
- (wasm_of_ocaml
-  (javascript_files ./runtime.js)
-  (wasm_files runtime_wasm.js runtime.wat)
-  (flags --no-sourcemap)))
+)
