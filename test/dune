@@ -42,9 +42,3 @@
  (action
   (bash "diff %{deps}"))
  (alias runtest))
-
-(env
-  (_
-    (wasm_of_ocaml
-      (enabled_if true)
-      (runtest_alias runtest-wasm))))
