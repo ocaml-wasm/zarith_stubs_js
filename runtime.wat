@@ -306,20 +306,18 @@
       (call $caml_serialize_int_4 (local.get $s) (local.get $nb))
       (call $serialize (ref.func $caml_serialize_int_1) (local.get $s)
          (local.get $z))
-      (tuple.make 2
-          (i32.add (i32.const 4) (local.get $nb))
-          (i32.and (i32.const -8) (i32.add (i32.const 15) (local.get $nb)))))
+      (i32.add (i32.const 4) (local.get $nb))
+      (i32.and (i32.const -8) (i32.add (i32.const 15) (local.get $nb))))
 
    (func $ml_z_custom_deserialize
       (param $s (ref eq)) (result (ref eq)) (result i32)
       (local $neg i32) (local $nb i32)
       (local.set $neg (call $caml_deserialize_uint_1 (local.get $s)))
       (local.set $nb (call $caml_deserialize_int_4 (local.get $s)))
-      (tuple.make 2
-         (call $wrap_bigint
-            (call $deserialize (ref.func $caml_deserialize_uint_1) (local.get $s)
-               (local.get $neg) (local.get $nb)))
-         (i32.add (i32.const 4) (local.get $nb))))
+      (call $wrap_bigint
+         (call $deserialize (ref.func $caml_deserialize_uint_1) (local.get $s)
+            (local.get $neg) (local.get $nb)))
+      (i32.add (i32.const 4) (local.get $nb)))
 
    (func (export "ml_z_cdiv")
       (param $z1 (ref eq)) (param $z2 (ref eq)) (result (ref eq))
