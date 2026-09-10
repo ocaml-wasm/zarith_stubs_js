@@ -1,5 +1,4 @@
 (module
-   (import "bindings" "log" (func $log_js (param anyref)))
    (import "js" "ml_z_neg"
       (func $neg (param (ref any)) (result (ref any))))
    (import "js" "ml_z_add"
@@ -678,7 +677,6 @@
 
    (func (export "ml_z_equal")
       (param $z1 (ref eq)) (param $z2 (ref eq)) (result (ref eq))
-      (local $x1 i32) (local $x2 i32)
       ;; Equal if physically equal
       (if (ref.eq (local.get $z1) (local.get $z2))
          (then (return (ref.i31 (i32.const 1)))))
