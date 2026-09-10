@@ -448,8 +448,8 @@
       (local.set $x (call $Int32_val (local.get $d)))
       (local.set $res (ref.i31 (local.get $x)))
       (if (i32.eq (local.get $x) (i31.get_s (local.get $res)))
-         (then (return (local.get $res)))
-         (else (return_call $wrap_bigint (call $of_int32 (local.get $x))))))
+         (then (return (local.get $res))))
+      (return_call $wrap_bigint (call $of_int32 (local.get $x))))
 
    (func (export "ml_z_of_nativeint")
       (param $d (ref eq)) (result (ref eq))
@@ -457,8 +457,8 @@
       (local.set $x (call $Nativeint_val (local.get $d)))
       (local.set $res (ref.i31 (local.get $x)))
       (if (i32.eq (local.get $x) (i31.get_s (local.get $res)))
-         (then (return (local.get $res)))
-         (else (return_call $wrap_bigint (call $of_int32 (local.get $x))))))
+         (then (return (local.get $res))))
+      (return_call $wrap_bigint (call $of_int32 (local.get $x))))
 
    (func (export "ml_z_of_int64")
       (param $z (ref eq)) (result (ref eq))
@@ -702,7 +702,8 @@
             (ref.i31
                (i32.sub (i32.gt_s (local.get $x) (i32.const 0))
                   (i32.lt_s (local.get $x) (i32.const 0)))))))
-      (select (ref.i31 (i32.const 1)) (ref.i31 (i32.const -1))
+      (select (result (ref i31))
+         (ref.i31 (i32.const 1)) (ref.i31 (i32.const -1))
          (call $positive (call $unwrap_bigint (local.get $z)))))
 
    (func (export "ml_z_gcd")
