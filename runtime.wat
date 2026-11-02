@@ -1,4 +1,6 @@
 (module
+   (@string_imports "str")
+   (@string_type $string)
    (import "bindings" "log" (func $log_js (param anyref)))
    (import "js" "wasm_z_neg"
       (func $neg (param (ref any)) (result (ref any))))
@@ -132,9 +134,23 @@
       (func $caml_string_of_jsstring (param (ref eq)) (result (ref eq))))
    (import "env" "caml_jsstring_of_string"
       (func $caml_jsstring_of_string (param (ref eq)) (result (ref eq))))
+(@if $use_js_string
+(@then
+   (import "env" "jsstring_of_substring"
+      (func $string_sub_utf8
+         (param (ref eq)) (param i32) (param i32) (result (ref eq)))))
+(@else
    (import "env" "jsstring_of_substring"
       (func $jsstring_of_substring
-         (param (ref $string)) (param i32) (param i32) (result anyref)))
+         (param (ref $string)) (param i32) (param i32) (result anyref)))))
+   (import "env" "string_length"
+      (func $string_length (param (ref $string)) (result i32)))
+   (import "env" "string_blit"
+      (func $string_blit
+         (param (ref $string)) (param i32) (param (ref $bytes)) (param i32)
+         (param i32)))
+   (import "env" "string_of_bytes"
+      (func $string_of_bytes (param (ref $bytes)) (result (ref $string))))
    (import "env" "caml_string_of_jsbytes"
       (func $caml_string_of_jsbytes (param (ref eq)) (result (ref eq))))
    (import "env" "caml_jsbytes_of_string"
@@ -176,7 +192,21 @@
       (func $caml_deserialize_int_4 (param (ref eq)) (result i32)))
 
    (type $block (array (mut (ref eq))))
-   (type $string (array (mut i8)))
+(@if $use_js_string
+(@then
+   (type $string (struct (field externref))))
+(@else
+   (type $string (array (mut i8)))))
+   (type $bytes (array (mut i8)))
+
+(@if $use_js_string
+(@then
+   (func $jsstring_of_substring
+      (param $s (ref $string)) (param $pos i32) (param $len i32)
+      (result anyref)
+      (call $unwrap
+         (call $string_sub_utf8
+            (local.get $s) (local.get $pos) (local.get $len))))))
 
    (type $compare
       (func (param (ref eq)) (param (ref eq)) (param i32) (result i32)))
@@ -201,8 +231,7 @@
 
    (global $ml_z_custom_ops (ref $custom_operations)
       (struct.new $custom_operations
-         (array.new_fixed $string 2 ;; "_z"
-            (i32.const 95) (i32.const 122))
+         (@string "_z")
          (ref.func $ml_z_custom_compare)
          (ref.func $ml_z_custom_compare)
          (ref.func $ml_z_custom_hash)
@@ -231,14 +260,13 @@
                (global.get $ml_z_custom_ops)
                (br_on_cast $is_eq (ref any) (ref eq) (local.get 0))))))
 
-   (data $ml_z_overflow "ml_z_overflow")
+   (@string $ml_z_overflow "ml_z_overflow")
 
    (func $ml_z_raise_overflow
       (call $caml_raise_constant
          (ref.as_non_null
             (call $caml_named_value
-               (array.new_data $string $ml_z_overflow
-                  (i32.const 0) (i32.const 13))))))
+               (global.get $ml_z_overflow)))))
 
    (func (export "ml_z_mul_overflows")
       (param $vx (ref eq)) (param $vy (ref eq)) (result (ref eq))
@@ -394,7 +422,7 @@
       (return_call $wrap_bigint
          (call $lognot (call $unwrap_bigint (local.get $z)))))
 
-   (data $shift_left_error "Z.shift_left: count argument must be positive")
+   (@string $shift_left_error "Z.shift_left: count argument must be positive")
 
    (func (export "ml_z_shift_left")
       (param $z (ref eq)) (param $amt (ref eq)) (result (ref eq))
@@ -403,13 +431,12 @@
              (i32.const 0))
          (then
             (call $caml_invalid_argument
-               (array.new_data $string $shift_left_error
-                  (i32.const 0) (i32.const 45)))))
+               (global.get $shift_left_error))))
       (return_call $wrap_bigint
          (call $shift_left
             (call $unwrap_bigint (local.get $z)) (local.get $amt))))
 
-   (data $shift_right_error "Z.shift_right: count argument must be positive")
+   (@string $shift_right_error "Z.shift_right: count argument must be positive")
 
    (func (export "ml_z_shift_right")
       (param $z (ref eq)) (param $amt (ref eq)) (result (ref eq))
@@ -418,13 +445,12 @@
              (i32.const 0))
          (then
             (call $caml_invalid_argument
-               (array.new_data $string $shift_right_error
-                  (i32.const 0) (i32.const 46)))))
+               (global.get $shift_right_error))))
       (return_call $wrap_bigint
          (call $shift_right
             (call $unwrap_bigint (local.get $z)) (local.get $amt))))
 
-   (data $shift_right_trunc_error
+   (@string $shift_right_trunc_error
       "Z.shift_right_trunc: count argument must be positive")
 
    (func (export "ml_z_shift_right_trunc")
@@ -434,8 +460,7 @@
              (i32.const 0))
          (then
             (call $caml_invalid_argument
-               (array.new_data $string $shift_right_trunc_error
-                  (i32.const 0) (i32.const 52)))))
+               (global.get $shift_right_trunc_error))))
       (return_call $wrap_bigint
          (call $shift_right_trunc
             (call $unwrap_bigint (local.get $z)) (local.get $amt))))
@@ -541,7 +566,7 @@
    (func (export "ml_z_format")
       (param $vfmt (ref eq)) (param $z (ref eq)) (result (ref eq))
       (local $res (ref any))
-      (local $fmt (ref $string)) (local $msg (ref $string)) (local $len i32)
+      (local $fmt (ref $string)) (local $msg (ref $bytes)) (local $len i32)
       (local.set $res
          (call $format
             (call $unwrap (call $caml_jsstring_of_string (local.get $vfmt)))
@@ -549,28 +574,28 @@
       (if (ref.test (ref i31) (local.get $res))
          (then
             (local.set $fmt (ref.cast (ref $string) (local.get $vfmt)))
-            (local.set $len (array.len (local.get $fmt)))
+            (local.set $len (call $string_length (local.get $fmt)))
             (local.set $msg
-               (array.new $string (i32.const 0)
+               (array.new $bytes (i32.const 0)
                   (i32.add (local.get $len) (i32.const 21))))
-            (array.init_data $string $format_error
+            (array.init_data $bytes $format_error
                (local.get $msg) (i32.const 0) (i32.const 0) (i32.const 20))
-            (array.copy $string $string
-               (local.get $msg) (i32.const 20)
-               (local.get $fmt) (i32.const 0) (local.get $len))
-            (array.set $string (local.get $msg)
+            (call $string_blit
+               (local.get $fmt) (i32.const 0)
+               (local.get $msg) (i32.const 20) (local.get $len))
+            (array.set $bytes (local.get $msg)
                (i32.add (local.get $len) (i32.const 20))
                (i32.const 39)) ;; "'"
-            (call $caml_failwith (local.get $msg))))
+            (call $caml_failwith (call $string_of_bytes (local.get $msg)))))
       (call $caml_string_of_jsstring (call $wrap (local.get $res))))
 
-   (data $of_subtring_base_error
+   (@string $of_subtring_base_error
       "Z.of_substring_base: invalid offset or length")
 
-   (data $of_subtring_base_bad_base
+   (@string $of_subtring_base_bad_base
       "Z.of_substring_base: base must be between 2 and 16")
 
-   (data $of_subtring_base_invalid_digit
+   (@string $of_subtring_base_invalid_digit
       "Z.of_substring_base: invalid digit")
 
    (func (export "ml_z_of_substring_base")
@@ -585,20 +610,18 @@
       (local.set $base (i31.get_s (ref.cast (ref i31) (local.get $vbase))))
       (if (i32.or (i32.lt_s (local.get $pos) (i32.const 0))
              (i32.or (i32.lt_s (local.get $len) (i32.const 0))
-                (i32.lt_s (array.len (local.get $s))
+                (i32.lt_s (call $string_length (local.get $s))
                    (i32.add (local.get $pos) (local.get $len)))))
          (then
             (call $caml_invalid_argument
-               (array.new_data $string $of_subtring_base_error
-                  (i32.const 0) (i32.const 45)))))
+               (global.get $of_subtring_base_error))))
       (if (i32.ne (local.get $base) (i32.const 0))
          (then
             (if (i32.or (i32.lt_s (local.get $base) (i32.const 2))
                    (i32.gt_s (local.get $base) (i32.const 16)))
                (then
                   (call $caml_invalid_argument
-                     (array.new_data $string $of_subtring_base_bad_base
-                        (i32.const 0) (i32.const 50)))))))
+                     (global.get $of_subtring_base_bad_base))))))
       (local.set $res
          (call $of_js_string_base
             (local.get $vbase)
@@ -609,8 +632,7 @@
       (block $error
          (return_call $wrap_bigint (br_on_null $error (local.get $res))))
       (call $caml_invalid_argument
-         (array.new_data $string $of_subtring_base_invalid_digit
-            (i32.const 0) (i32.const 34)))
+         (global.get $of_subtring_base_invalid_digit))
       (ref.i31 (i32.const 0)))
 
    (func $ml_z_custom_compare
@@ -720,7 +742,7 @@
             (local.get $exp')
             (call $unwrap_bigint (local.get $mod)))))
 
-   (data $pow_negative_exp "Z.pow: exponent must be nonnegative")
+   (@string $pow_negative_exp "Z.pow: exponent must be nonnegative")
 
    (func (export "ml_z_pow")
       (param $z (ref eq)) (param $i (ref eq))
@@ -730,8 +752,7 @@
              (i32.const 0))
          (then
             (call $caml_invalid_argument
-               (array.new_data $string $pow_negative_exp
-                  (i32.const 0) (i32.const 35)))))
+               (global.get $pow_negative_exp))))
       (call $wrap_bigint
          (call $pow (call $unwrap_bigint (local.get $z)) (local.get $i))))
 
@@ -761,8 +782,8 @@
             (call $unwrap
                (call $caml_jsbytes_of_string (local.get $s))))))
 
-   (data $powm_positive_exp "Z.powm_sec: exponent must be positive")
-   (data $powm_odd_modulus "Z.powm_sec: modulus must be odd")
+   (@string $powm_positive_exp "Z.powm_sec: exponent must be positive")
+   (@string $powm_odd_modulus "Z.powm_sec: modulus must be odd")
 
    (func (export "ml_z_powm_sec")
       (param $base (ref eq)) (param $exp (ref eq)) (param $mod (ref eq))
@@ -771,8 +792,7 @@
              (i32.eqz (call $positive (call $unwrap_bigint (local.get $exp)))))
          (then
             (call $caml_invalid_argument
-               (array.new_data $string $powm_positive_exp
-                  (i32.const 0) (i32.const 37)))))
+               (global.get $powm_positive_exp))))
       (if (i32.eqz
              (i31.get_s
                 (ref.cast (ref i31)
@@ -781,8 +801,7 @@
                       (ref.i31 (i32.const 1))))))
          (then
             (call $caml_invalid_argument
-               (array.new_data $string $powm_odd_modulus
-                  (i32.const 0) (i32.const 31)))))
+               (global.get $powm_odd_modulus))))
       (if (i32.or (ref.eq (local.get $mod) (ref.i31 (i32.const 1)))
               (ref.eq (local.get $mod) (ref.i31 (i32.const -1))))
          (then (return (ref.i31 (i32.const 0)))))
@@ -792,9 +811,9 @@
             (call $unwrap_bigint (local.get $exp))
             (call $unwrap_bigint (local.get $mod)))))
 
-   (data $root_negative_exponent "Z.root: exponent must be positive")
+   (@string $root_negative_exponent "Z.root: exponent must be positive")
 
-   (data $root_even_neg "Z.root: even root of a negative number")
+   (@string $root_even_neg "Z.root: even root of a negative number")
 
    (func (export "ml_z_root")
       (param $z (ref eq)) (param $vi (ref eq)) (result (ref eq))
@@ -804,15 +823,13 @@
       (if (i32.le_s (local.get $i) (i32.const 0))
          (then
             (call $caml_invalid_argument
-               (array.new_data $string $root_negative_exponent
-                  (i32.const 0) (i32.const 33)))))
+               (global.get $root_negative_exponent))))
       (if (i32.eqz (i32.and (local.get $i) (i32.const 1)))
          (then
             (if (i32.eqz (call $positive (local.get $z')))
                (then
                   (call $caml_invalid_argument
-                     (array.new_data $string $root_even_neg
-                        (i32.const 0) (i32.const 38)))))))
+                     (global.get $root_even_neg))))))
       (if (i32.or (ref.eq (local.get $z) (ref.i31 (i32.const 0)))
              (ref.eq (local.get $z) (ref.i31 (i32.const 1))))
          (then
@@ -822,9 +839,9 @@
             (call $unwrap_bigint (local.get $z))
             (local.get $vi))))
 
-   (data $rootrem_negative_exponent "Z.rootrem: exponent must be positive")
+   (@string $rootrem_negative_exponent "Z.rootrem: exponent must be positive")
 
-   (data $rootrem_even_neg "Z.rootrem: even root of a negative number")
+   (@string $rootrem_even_neg "Z.rootrem: even root of a negative number")
 
    (func (export "ml_z_rootrem")
       (param $z (ref eq)) (param $vi (ref eq)) (result (ref eq))
@@ -834,15 +851,13 @@
       (if (i32.le_s (local.get $i) (i32.const 0))
          (then
             (call $caml_invalid_argument
-               (array.new_data $string $rootrem_negative_exponent
-                  (i32.const 0) (i32.const 36)))))
+               (global.get $rootrem_negative_exponent))))
       (if (i32.eqz (i32.and (local.get $i) (i32.const 1)))
          (then
             (if (i32.eqz (call $positive (local.get $z')))
                (then
                   (call $caml_invalid_argument
-                     (array.new_data $string $rootrem_even_neg
-                        (i32.const 0) (i32.const 41)))))))
+                     (global.get $rootrem_even_neg))))))
       (if (i32.or (ref.eq (local.get $z) (ref.i31 (i32.const 0)))
              (ref.eq (local.get $z) (ref.i31 (i32.const 1))))
          (then
@@ -936,7 +951,7 @@
                      (local.get $res) (ref.i31 (i32.const 1))))))
          (ref.i31 (i32.const 1))))
 
-   (data $sqrt_non_positive "Z.sqrt: square root of a negative number")
+   (@string $sqrt_non_positive "Z.sqrt: square root of a negative number")
 
    (func (export "ml_z_sqrt")
       (param $z (ref eq)) (result (ref eq))
@@ -945,12 +960,11 @@
       (if (i32.eqz (call $positive (local.get $z')))
          (then
             (call $caml_invalid_argument
-               (array.new_data $string $sqrt_non_positive
-                  (i32.const 0) (i32.const 40)))))
+               (global.get $sqrt_non_positive))))
       (return_call $wrap_bigint
          (call $root (local.get $z') (ref.i31 (i32.const 2)))))
 
-   (data $sqrt_rem_non_positive "Z.sqrt_rem: square root of a negative number")
+   (@string $sqrt_rem_non_positive "Z.sqrt_rem: square root of a negative number")
 
    (func (export "ml_z_sqrt_rem")
       (param $z (ref eq)) (result (ref eq))
@@ -959,8 +973,7 @@
       (if (i32.eqz (call $positive (local.get $z')))
          (then
             (call $caml_invalid_argument
-               (array.new_data $string $sqrt_rem_non_positive
-                  (i32.const 0) (i32.const 44)))))
+               (global.get $sqrt_rem_non_positive))))
       (local.set $r (call $root (local.get $z') (ref.i31 (i32.const 2))))
       (array.new_fixed $block 3 (ref.i31 (i32.const 0))
          (call $wrap_bigint (local.get $r))
@@ -1083,7 +1096,7 @@
             (call $caml_js_get
                (local.get $res) (ref.i31 (i32.const 1))))))
 
-   (data $fac_non_positive "Z.fac: non-positive argument")
+   (@string $fac_non_positive "Z.fac: non-positive argument")
 
    (func (export "ml_z_fac")
       (param $a (ref eq)) (result (ref eq))
@@ -1092,11 +1105,10 @@
              (i32.const 0))
          (then
             (call $caml_invalid_argument
-               (array.new_data $string $fac_non_positive
-                  (i32.const 0) (i32.const 28)))))
+               (global.get $fac_non_positive))))
       (call $wrap_bigint (call $fac (local.get $a))))
 
-   (data $fac2_non_positive "Z.fac2: non-positive argument")
+   (@string $fac2_non_positive "Z.fac2: non-positive argument")
 
    (func (export "ml_z_fac2")
       (param $a (ref eq)) (result (ref eq))
@@ -1105,11 +1117,10 @@
              (i32.const 0))
          (then
             (call $caml_invalid_argument
-               (array.new_data $string $fac2_non_positive
-                  (i32.const 0) (i32.const 28)))))
+               (global.get $fac2_non_positive))))
       (call $wrap_bigint (call $fac2 (local.get $a))))
 
-   (data $facM_non_positive "Z.facM: non-positive argument")
+   (@string $facM_non_positive "Z.facM: non-positive argument")
 
    (func (export "ml_z_facM")
       (param $a (ref eq)) (param $b (ref eq)) (result (ref eq))
@@ -1122,11 +1133,10 @@
                 (i32.const 0)))
          (then
             (call $caml_invalid_argument
-               (array.new_data $string $facM_non_positive
-                  (i32.const 0) (i32.const 28)))))
+               (global.get $facM_non_positive))))
       (call $wrap_bigint (call $facM (local.get $a) (local.get $b))))
 
-   (data $fib_non_positive "Z.fib: non-positive argument")
+   (@string $fib_non_positive "Z.fib: non-positive argument")
 
    (func (export "ml_z_fib")
       (param $a (ref eq)) (result (ref eq))
@@ -1135,11 +1145,10 @@
              (i32.const 0))
          (then
             (call $caml_invalid_argument
-               (array.new_data $string $fib_non_positive
-                  (i32.const 0) (i32.const 28)))))
+               (global.get $fib_non_positive))))
       (call $wrap_bigint (call $fib (local.get $a))))
 
-   (data $lucnum_non_positive "Z.lucnum: non-positive argument")
+   (@string $lucnum_non_positive "Z.lucnum: non-positive argument")
 
    (func (export "ml_z_lucnum")
       (param $a (ref eq)) (result (ref eq))
@@ -1148,11 +1157,10 @@
              (i32.const 0))
          (then
             (call $caml_invalid_argument
-               (array.new_data $string $lucnum_non_positive
-                  (i32.const 0) (i32.const 31)))))
+               (global.get $lucnum_non_positive))))
       (call $wrap_bigint (call $lucnum (local.get $a))))
 
-   (data $jacobi_invalid_arg "Z.jacobi: second argument is negative or even")
+   (@string $jacobi_invalid_arg "Z.jacobi: second argument is negative or even")
 
    (export "ml_z_legendre" (func $ml_z_jacobi))
    (func $ml_z_jacobi (export "ml_z_jacobi")
@@ -1167,21 +1175,19 @@
                          (ref.i31 (i32.const 1)))))))
          (then
             (call $caml_invalid_argument
-               (array.new_data $string $jacobi_invalid_arg
-                  (i32.const 0) (i32.const 45)))))
+               (global.get $jacobi_invalid_arg))))
       (ref.i31
          (call $jacobi (call $unwrap_bigint (local.get $n)) (local.get $k'))))
 
-   (data $kronecker_not_implemented "ml_z_kronecker is not implemented")
+   (@string $kronecker_not_implemented "ml_z_kronecker is not implemented")
 
    (func (export "ml_z_kronecker")
       (param $z1 (ref eq)) (param $z2 (ref eq)) (result (ref eq))
       (call $caml_failwith
-         (array.new_data $string $kronecker_not_implemented
-            (i32.const 0) (i32.const 33)))
+         (global.get $kronecker_not_implemented))
       (ref.i31 (i32.const 0)))
 
-   (data $primorial_non_positive "Z.primorial: non-positive argument")
+   (@string $primorial_non_positive "Z.primorial: non-positive argument")
 
    (func (export "ml_z_primorial")
       (param $va (ref eq)) (result (ref eq))
@@ -1190,11 +1196,10 @@
       (if (i32.lt_s (local.get $a) (i32.const 0))
          (then
             (call $caml_invalid_argument
-               (array.new_data $string $primorial_non_positive
-                  (i32.const 0) (i32.const 34)))))
+               (global.get $primorial_non_positive))))
       (return_call $wrap_bigint (call $primorial (local.get $a))))
 
-   (data $bin_non_positive "Z.bin: non-positive argument")
+   (@string $bin_non_positive "Z.bin: non-positive argument")
 
    (func (export "ml_z_bin")
       (param $z1 (ref eq)) (param $z2 (ref eq)) (result (ref eq))
@@ -1203,8 +1208,7 @@
              (i32.const 0))
          (then
             (call $caml_invalid_argument
-               (array.new_data $string
-                  $bin_non_positive (i32.const 0) (i32.const 28)))))
+               (global.get $bin_non_positive))))
       (call $wrap_bigint
          (call $bin (call $unwrap_bigint (local.get $z1)) (local.get $z2))))
 )
